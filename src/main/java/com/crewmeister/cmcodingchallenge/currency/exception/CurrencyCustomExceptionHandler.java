@@ -19,10 +19,26 @@ public class CurrencyCustomExceptionHandler {
     Logger logger = LoggerFactory.getLogger(CurrencyCustomExceptionHandler.class);
 
     @ExceptionHandler(RefreshBatchException.class)
-    public @ResponseBody CustomExceptionResponse handleValidationExceptions
-            (final RefreshBatchException exception) {
+    public @ResponseBody CustomExceptionResponse handleRefreshVatchExceptions(final RefreshBatchException exception) {
         logger.warn("Exception occurred during refresh data service ");
         return new CustomExceptionResponse(HttpStatus.INTERNAL_SERVER_ERROR,
                 exception.getMessage(), null);
     }
+
+    @ExceptionHandler(FetchExchangeRatesException.class)
+    public @ResponseBody CustomExceptionResponse handleFetchExchangeRatesExceptions(final FetchExchangeRatesException exception) {
+        logger.warn("Exception occurred while fetching exchange data from DB ");
+        logger.warn("Exception message is {}", exception.getMessage());
+        return new CustomExceptionResponse(HttpStatus.INTERNAL_SERVER_ERROR,
+                exception.getMessage(), null);
+    }
+
+    @ExceptionHandler(InvalidInputException.class)
+    public @ResponseBody CustomExceptionResponse handleInvalidInputExceptions(final InvalidInputException exception) {
+        logger.warn("Invalid input supplied to the service ");
+        logger.warn("Exception message is {}", exception.getMessage());
+        return new CustomExceptionResponse(HttpStatus.INTERNAL_SERVER_ERROR,
+                exception.getMessage(), null);
+    }
+
 }

@@ -1,8 +1,10 @@
 package com.crewmeister.cmcodingchallenge.currency.service.impl;
 
 import com.crewmeister.cmcodingchallenge.currency.builder.CurrencyExchangeDataBuilder;
+import com.crewmeister.cmcodingchallenge.currency.entity.CurrencyExchange;
 import com.crewmeister.cmcodingchallenge.currency.model.domain.CurrencyExchangeDTO;
-import com.crewmeister.cmcodingchallenge.currency.service.CurrencyDataRefresherService;
+import com.crewmeister.cmcodingchallenge.currency.repo.CurrencyExchangeDataRepo;
+import com.crewmeister.cmcodingchallenge.currency.service.ExchangeRateRefresherService;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -16,14 +18,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static com.crewmeister.cmcodingchallenge.currency.exception.CurrencyExchangeAppException.*;
 import static com.crewmeister.cmcodingchallenge.currency.constants.CurrencyConstants.*;
 
 @Service
-public class CurrencyDataRefresherServiceImpl implements CurrencyDataRefresherService {
+public class ExchangeRateRefresherServiceImpl implements ExchangeRateRefresherService {
 
     @Value("${bundesbank.currency.exchange.service.url}")
     private String currencyServiceUrl;
@@ -31,7 +33,13 @@ public class CurrencyDataRefresherServiceImpl implements CurrencyDataRefresherSe
     @Value("${bundesbank.currency.exchange.base.url}")
     private String currencyServiceBaseUrl;
 
-    private Logger logger = LoggerFactory.getLogger(CurrencyDataRefresherServiceImpl.class);
+    private final CurrencyExchangeDataRepo currencyExchangeDataRepo;
+
+    private Logger logger = LoggerFactory.getLogger(ExchangeRateRefresherServiceImpl.class);
+
+    public ExchangeRateRefresherServiceImpl(CurrencyExchangeDataRepo currencyExchangeDataRepo) {
+        this.currencyExchangeDataRepo = currencyExchangeDataRepo;
+    }
 
     /**
      * this method orchestrates the below actions
@@ -59,7 +67,7 @@ public class CurrencyDataRefresherServiceImpl implements CurrencyDataRefresherSe
             logger.info("total of {} valid urls received to the individual currency details",
                     currencyDataUrls.size());
 
-            currencyDataUrls.entrySet().stream().forEach(item -> collectAndSaveIndividualCurrencyData(item));
+            currencyDataUrls.entrySet().stream().limit(2).forEach(item -> collectAndSaveIndividualCurrencyData(item));
         }
 
 
@@ -88,7 +96,7 @@ public class CurrencyDataRefresherServiceImpl implements CurrencyDataRefresherSe
 
         logger.info("About to process the each currency rows one by one");
         logger.info("Total of {} currency data rows found", rows.size()-1);
-        Map<String,String> currencyDataUrls = new HashMap<>();
+        Map<String,String> currencyDataUrls = new LinkedHashMap<>();
 
         for (int i = 1; i < rows.size(); i++) {//first row is the col names so skip it.
 
@@ -165,6 +173,14 @@ public class CurrencyDataRefresherServiceImpl implements CurrencyDataRefresherSe
             logger.info("Building currencyExchangeData object");
             CurrencyExchangeDTO currencyExchangeDTO = new CurrencyExchangeDataBuilder(currency).
                     withDate(dataCols).withValue(dataCols).withPercentageChange(dataCols).build();
+
+            CurrencyExchange currencyExchange = new CurrencyExchange(currencyExchangeDTO.getCurrency(),
+                    currencyExchangeDTO.getValue(), currencyExchangeDTO.getPercentageChange(),
+                    currencyExchangeDTO.getDate());
+
+            logger.info("About to save the exchange rate of {} on {} to the DB",currencyExchangeDTO.getCurrency(),
+                    currencyExchangeDTO.getDate());
+            currencyExchangeDataRepo.save(currencyExchange);
         }
     }
 

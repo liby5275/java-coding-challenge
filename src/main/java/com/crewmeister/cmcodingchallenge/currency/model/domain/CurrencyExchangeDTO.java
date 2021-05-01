@@ -9,6 +9,16 @@ public class CurrencyExchangeDTO {
     private Date date;
     private double percentageChange;
 
+    public CurrencyExchangeDTO() {
+    }
+
+    public CurrencyExchangeDTO(String currency, double value, Date date, double percentageChange) {
+        this.currency = currency;
+        this.value = value;
+        this.date = date;
+        this.percentageChange = percentageChange;
+    }
+
     public String getCurrency() {
         return currency;
     }

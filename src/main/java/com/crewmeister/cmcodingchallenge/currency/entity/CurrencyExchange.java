@@ -15,11 +15,16 @@ public class CurrencyExchange {
 
     private String currency;
     private double exchangeValue;
+    private double percentageExchange;
     private Date date;
 
-    public CurrencyExchange(String currency, double exchangeValue, Date date) {
+    public CurrencyExchange() {
+    }
+
+    public CurrencyExchange(String currency, double exchangeValue, double percentageExchange, Date date) {
         this.currency = currency;
         this.exchangeValue = exchangeValue;
+        this.percentageExchange = percentageExchange;
         this.date = date;
     }
 

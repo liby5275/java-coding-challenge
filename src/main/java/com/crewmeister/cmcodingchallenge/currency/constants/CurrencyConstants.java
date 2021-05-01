@@ -18,4 +18,7 @@ public class CurrencyConstants {
 
     public static final String NO_VALID_CURRENCY_ROWS_FOUND = "No currency exchange rows found in the website provided";
     public static final String INVALID_DATA = "No Data found from the url provided.";
+    public static final String NO_EXCHANGE_RATES_FOUND = "No exchange rates found from the DB";
+    public static final String NO_CURRENCY_FOUND = "No currency found from the DB";
+    public static final String INVALID_DATE_INPUT = "Un-parsable date input provided. please provide yyyy-MM-dd format";
 }
