@@ -2,16 +2,12 @@ package com.crewmeister.cmcodingchallenge.currency.exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpRequest;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import javax.servlet.http.HttpServletRequest;
-
-import static com.crewmeister.cmcodingchallenge.currency.exception.CurrencyExchangeAppException.*;
+import static com.crewmeister.cmcodingchallenge.currency.exception.CurrencyExchangeAppExceptions.*;
 
 @ControllerAdvice
 public class CurrencyCustomExceptionHandler {

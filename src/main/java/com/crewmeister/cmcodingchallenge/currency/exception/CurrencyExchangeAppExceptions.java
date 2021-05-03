@@ -1,6 +1,10 @@
 package com.crewmeister.cmcodingchallenge.currency.exception;
 
-public class CurrencyExchangeAppException {
+public class CurrencyExchangeAppExceptions {
+
+    private CurrencyExchangeAppExceptions() {
+        throw new IllegalStateException("Utility Custom Exception class");
+    }
 
     public static class RefreshBatchException extends CurrencyBaseException {
 

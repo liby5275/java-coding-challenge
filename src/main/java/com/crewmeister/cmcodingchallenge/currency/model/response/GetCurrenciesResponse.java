@@ -1,5 +1,6 @@
 package com.crewmeister.cmcodingchallenge.currency.model.response;
 
+
 import java.util.List;
 
 public class GetCurrenciesResponse {

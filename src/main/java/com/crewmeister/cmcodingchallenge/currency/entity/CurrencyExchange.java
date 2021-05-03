@@ -43,4 +43,12 @@ public class CurrencyExchange {
     public Date getDate() {
         return date;
     }
+
+    public double getPercentageExchange() {
+        return percentageExchange;
+    }
+
+    public void setPercentageExchange(double percentageExchange) {
+        this.percentageExchange = percentageExchange;
+    }
 }

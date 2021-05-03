@@ -12,6 +12,10 @@ public interface CurrencyExchangeDataRepo extends JpaRepository<CurrencyExchange
 
     public Optional<List<CurrencyExchange>> findByDate(Date date);
 
+    public Optional<CurrencyExchange> findByCurrencyAndDate(String currency, Date date);
+
+    public Optional<List<CurrencyExchange>> findAllByOrderByDateAsc();
+
     @Query(value = "Select DISTINCT r.currency from CurrencyExchange r", nativeQuery = true)
     public Optional<List<String>> fetchCurrencies();
 

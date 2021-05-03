@@ -1,6 +1,7 @@
 package com.crewmeister.cmcodingchallenge.currency.service.impl;
 
 import com.crewmeister.cmcodingchallenge.currency.builder.CurrencyExchangeDataBuilder;
+import com.crewmeister.cmcodingchallenge.currency.cache.CurrencyExchangeRateCacheService;
 import com.crewmeister.cmcodingchallenge.currency.entity.CurrencyExchange;
 import com.crewmeister.cmcodingchallenge.currency.model.domain.CurrencyExchangeDTO;
 import com.crewmeister.cmcodingchallenge.currency.repo.CurrencyExchangeDataRepo;
@@ -18,12 +19,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
 import java.io.IOException;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
-import static com.crewmeister.cmcodingchallenge.currency.exception.CurrencyExchangeAppException.*;
+import static com.crewmeister.cmcodingchallenge.currency.exception.CurrencyExchangeAppExceptions.*;
 import static com.crewmeister.cmcodingchallenge.currency.constants.CurrencyConstants.*;
 
+
+/**
+ * service class which helps to load/refresh the raw data into the DB from the external website
+ * IF the DB is empty, entire data will be loaded, else only the entries not present in the DB
+ * will be picked and stored into the DB
+ */
 @Service
 public class ExchangeRateRefresherServiceImpl implements ExchangeRateRefresherService {
 
@@ -34,11 +40,14 @@ public class ExchangeRateRefresherServiceImpl implements ExchangeRateRefresherSe
     private String currencyServiceBaseUrl;
 
     private final CurrencyExchangeDataRepo currencyExchangeDataRepo;
+    private final CurrencyExchangeRateCacheService currencyExchangeRateCacheService;
 
     private Logger logger = LoggerFactory.getLogger(ExchangeRateRefresherServiceImpl.class);
 
-    public ExchangeRateRefresherServiceImpl(CurrencyExchangeDataRepo currencyExchangeDataRepo) {
+    public ExchangeRateRefresherServiceImpl(CurrencyExchangeDataRepo currencyExchangeDataRepo,
+                                            CurrencyExchangeRateCacheService currencyExchangeRateCacheService) {
         this.currencyExchangeDataRepo = currencyExchangeDataRepo;
+        this.currencyExchangeRateCacheService = currencyExchangeRateCacheService;
     }
 
     /**
@@ -64,14 +73,19 @@ public class ExchangeRateRefresherServiceImpl implements ExchangeRateRefresherSe
 
         if(!CollectionUtils.isEmpty(currencyDataUrls)){
 
+            logger.info("Clear all the caches");
+            currencyExchangeRateCacheService.clearCache();
             logger.info("total of {} valid urls received to the individual currency details",
                     currencyDataUrls.size());
 
-            currencyDataUrls.entrySet().stream().limit(2).forEach(item -> collectAndSaveIndividualCurrencyData(item));
+            currencyDataUrls.entrySet().stream().limit(4).forEach(this::collectAndSaveIndividualCurrencyData);
+
         }
 
 
     }
+
+
 
     private Map<String,String> getCurrencyExchangeBaseDataUrls(Document doc) {
 
@@ -85,6 +99,8 @@ public class ExchangeRateRefresherServiceImpl implements ExchangeRateRefresherSe
                     HttpStatus.INTERNAL_SERVER_ERROR.value());
         }
     }
+
+
 
     /**
      * method to iterate the base url content and collect all the individual urls corresponding
@@ -132,11 +148,15 @@ public class ExchangeRateRefresherServiceImpl implements ExchangeRateRefresherSe
     }
 
 
-    private void collectAndSaveIndividualCurrencyData(Map.Entry individualCurrencyData)  {
+    /**
+     * Method to get the data corresponding to each individual currencies
+     * @param individualCurrencyData
+     */
+    private void collectAndSaveIndividualCurrencyData(Map.Entry<String, String> individualCurrencyData)  {
 
         String individualCurrencyDetailsurl = new StringBuilder(currencyServiceBaseUrl).
                 append(individualCurrencyData.getValue()).toString();
-        String currency = (String) individualCurrencyData.getKey();
+        String currency = individualCurrencyData.getKey();
         logger.info("About to fetch the exchange details of currency {}",currency);
         Document individualCurrencyDoc = null;
 
@@ -163,9 +183,16 @@ public class ExchangeRateRefresherServiceImpl implements ExchangeRateRefresherSe
 
     }
 
+
+    /**
+     * Iterate through individual currency data and then save it to the DB
+     * @param currencyDataRows
+     * @param currency
+     */
     private void fetchAndSaveIndividualCurrencyData(Elements currencyDataRows, String currency) {
 
         logger.info("About to save exchange rates of {} to the DB",currency);
+
         for(int i=1; i < currencyDataRows.size(); i++) {//first row is the col names so skip it.
             Element currencyDataRow = currencyDataRows.get(i);
             Elements dataCols = currencyDataRow.select(TABLE_COLUMN);
@@ -174,14 +201,42 @@ public class ExchangeRateRefresherServiceImpl implements ExchangeRateRefresherSe
             CurrencyExchangeDTO currencyExchangeDTO = new CurrencyExchangeDataBuilder(currency).
                     withDate(dataCols).withValue(dataCols).withPercentageChange(dataCols).build();
 
-            CurrencyExchange currencyExchange = new CurrencyExchange(currencyExchangeDTO.getCurrency(),
-                    currencyExchangeDTO.getValue(), currencyExchangeDTO.getPercentageChange(),
-                    currencyExchangeDTO.getDate());
+            if( !isThisDataAlreadyPresentInDB(currencyExchangeDTO)){
 
-            logger.info("About to save the exchange rate of {} on {} to the DB",currencyExchangeDTO.getCurrency(),
-                    currencyExchangeDTO.getDate());
-            currencyExchangeDataRepo.save(currencyExchange);
+                logger.info("the data entry for this date {} is not present in the DB. So about to add it into the DB",
+                        currencyExchangeDTO.getDate());
+
+                CurrencyExchange currencyExchange = new CurrencyExchange(currencyExchangeDTO.getCurrency(),
+                        currencyExchangeDTO.getValue(), currencyExchangeDTO.getPercentageChange(),
+                        currencyExchangeDTO.getDate());
+
+                logger.info("About to save the exchange rate of {} on {} to the DB",currencyExchangeDTO.getCurrency(),
+                        currencyExchangeDTO.getDate());
+
+                currencyExchangeDataRepo.save(currencyExchange);
+            }
+
         }
+    }
+
+
+    /**
+     * Method to check whether the the rate data for this currency on a particular date
+     * is already there in the DB or not;
+     * @param currencyExchangeDTO
+     * @return
+     */
+    private boolean isThisDataAlreadyPresentInDB(CurrencyExchangeDTO currencyExchangeDTO) {
+
+        boolean isAlreadyPresent = false;
+        Optional<CurrencyExchange> mostRecentlyDatedDataOptional = currencyExchangeDataRepo.
+                findByCurrencyAndDate(currencyExchangeDTO.getCurrency(), currencyExchangeDTO.getDate());
+
+        if(mostRecentlyDatedDataOptional.isPresent()){
+            isAlreadyPresent = true;
+        }
+
+        return isAlreadyPresent;
     }
 
 
